@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -16,12 +17,21 @@ namespace Server
 
         private Stream stream { get; set; }
 
+        //public List<Categories> categoryList = new List<Categories>();
+
         public void setStream(Stream stream)
         {
             this.stream = stream;
         }
 
-        public void simpleValidate()
+        public void run()
+        {
+            ServerResponse response = new ServerResponse();
+            simpleValidate(/*response*/);
+            RequestPath(response);
+        }
+
+        public void simpleValidate(/*ServerResponse response*/)
         {
             ServerResponse response = new ServerResponse();
 
@@ -51,7 +61,7 @@ namespace Server
                 //stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
             }
 
-            if ( !String.IsNullOrEmpty(method) &&  (!method.Contains("update") || !method.Contains("delete") || !method.Contains("read") ||
+            if ( !String.IsNullOrEmpty(method) &&  (!method.Contains("update") && !method.Contains("delete") && !method.Contains("read") &&
                                                    !method.Contains("create")) )
             {
                 if (String.IsNullOrEmpty(response.status))
@@ -60,7 +70,71 @@ namespace Server
                     response.status = String.Concat(response.status, "+ illegal method");
             }
 
+            if(!String.IsNullOrEmpty(response.status)) 
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+        }
+
+        public void RequestPath(ServerResponse response)
+        {
+            switch (method)
+            {
+                case "create":
+                    create(response);
+                    break;
+                case "delete":
+                    break;
+                case "read":
+                    break;
+                case "update":
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        public void create(ServerResponse response)
+        {
+            Console.WriteLine(path);
+            if (!path.EndsWith("categories"))
+            {
+                Console.WriteLine("Testing");
+                if (String.IsNullOrEmpty(response.status))
+                    response.status = "4 bad request";
+                else
+                    response.status = String.Concat(response.status, "+ 4 bad request");
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+            //if (!String.IsNullOrEmpty(response.status))
+            //stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+
+
+            //var test = JsonSerializer.Serialize(new {name = "Testing"});
+
+
+
+            Categories categories = new Categories();
+
+
+
+            //var test = JsonSerializer.Deserialize<Categories>(response.body);
+
+            //Console.WriteLine(test);
+            categories = JsonSerializer.Deserialize<Categories>(body);
+            //categoryList.Add(categories);
+            //categories.cid = categoryList.Count;
+
+            
+            //categories = JsonSerializer.Deserialize<Categories>(test);
+
+            //Console.WriteLine(categories);
+
+            response.status = "2 created";
+
+            response.body = JsonSerializer.Serialize(categories);
+            //Console.WriteLine(response.body);
             stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            return;
         }
 
         /*public Request(string method, string path, string date, string body)

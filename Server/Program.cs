@@ -37,7 +37,7 @@ namespace Server
                     request = JsonSerializer.Deserialize<Request>(msg);
                     //request = JsonSerializer.Deserialize(msg);
                     request.setStream(stream);
-                    request.simpleValidate();
+                    request.run();
 
                     /*var newResponse = Path(request);
                     var data = Encoding.UTF8.GetBytes(newResponse);
