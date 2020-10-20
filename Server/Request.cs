@@ -11,11 +11,8 @@ namespace Server
         public string date { get; set; }
         public string body { get; set; }
 
-        //public DateTime time { get; set; } = new DateTime(1970, 1, 1, 0, 0, 0, 0);
-
         private Stream stream { get; set; }
 
-        //public static List<Categories> categoryList = new List<Categories>();
         public void setStream(Stream stream)
         {
             this.stream = stream;
@@ -59,15 +56,6 @@ namespace Server
             }
 
 
-            if (!string.IsNullOrEmpty(method) && !method.Contains("update") && !method.Contains("delete") &&
-                !method.Contains("read") && !method.Contains("create") && !method.Contains("echo"))
-            {
-                if (string.IsNullOrEmpty(response.status))
-                    response.status = "illegal method";
-                else
-                    response.status = string.Concat(response.status, "+ illegal method");
-            }
-
             if (!string.IsNullOrEmpty(response.status))
                 stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
         }
@@ -92,7 +80,8 @@ namespace Server
                     Echo(response);
                     break;
                 default:
-                    stream.Write(JsonSerializer.SerializeToUtf8Bytes("Defaulting"));
+                    response.status = "illegal method";
+                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
                     break;
             }
         }
@@ -101,8 +90,7 @@ namespace Server
         {
             if (IsPathEmpty())
             {
-                response.status = "missing resource";
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                MissingPath(response);
                 return;
             }
 
@@ -138,8 +126,7 @@ namespace Server
         {
             if (IsPathEmpty())
             {
-                response.status = "missing resource";
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                MissingPath(response);
                 return;
             }
 
@@ -166,16 +153,8 @@ namespace Server
             var results = path.Split("/");
             var result = results[results.Length - 1];
 
-            for (var i = 0; i < result.Length; i++)
-            {
-                var isInt = char.IsDigit(result[i]);
-                if (!isInt)
-                {
-                    response.status = "4 Bad Request";
-                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
-                    return;
-                }
-            }
+            if (!IsInt(result, response))
+                return;
 
             var intresult = int.Parse(result);
 
@@ -200,8 +179,7 @@ namespace Server
         {
             if (IsPathEmpty())
             {
-                response.status = "missing resource";
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                MissingPath(response);
                 return;
             }
 
@@ -216,16 +194,8 @@ namespace Server
             var results = path.Split("/");
             var result = results[results.Length - 1];
 
-            for (var i = 0; i < result.Length; i++)
-            {
-                var isInt = char.IsDigit(result[i]);
-                if (!isInt)
-                {
-                    response.status = "4 Bad Request";
-                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
-                    return;
-                }
-            }
+            if (!IsInt(result, response))
+                return;
 
             var intresult = int.Parse(result);
 
@@ -247,8 +217,7 @@ namespace Server
         {
             if (IsPathEmpty())
             {
-                response.status = "missing resource";
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                MissingPath(response);
                 return;
             }
 
@@ -263,17 +232,8 @@ namespace Server
             var results = path.Split("/");
             var result = results[results.Length - 1];
 
-            for (var i = 0; i < result.Length; i++)
-            {
-                var isInt = char.IsDigit(result[i]);
-
-                if (!isInt)
-                {
-                    response.status = "4 Bad Request";
-                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
-                    return;
-                }
-            }
+            if (!IsInt(result, response))
+                return;
 
             var intresult = int.Parse(result);
 
@@ -318,6 +278,28 @@ namespace Server
         {
             response.status = "missing body";
             stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+        }
+
+        public void MissingPath(ServerResponse response)
+        {
+            response.status = "missing resource";
+            stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+        }
+
+        public bool IsInt(string pathid, ServerResponse response)
+        {
+            for (var i = 0; i < pathid.Length; i++)
+            {
+                var isInt = char.IsDigit(pathid[i]);
+                if (!isInt)
+                {
+                    response.status = "4 Bad Request";
+                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }
