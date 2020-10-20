@@ -30,7 +30,7 @@ namespace Server
                 var data = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(serverResponse));
                 */
 
-                if (/*validate.Equals("Fine")*/true)
+                if (/*validate.Equals("Fine")*/msg != "Error")
                 {
                     Console.WriteLine(msg);
                     var request = new Request();
@@ -50,10 +50,17 @@ namespace Server
         }
         private static string Read(TcpClient client, NetworkStream stream)
         {
-            byte[] data = new byte[client.ReceiveBufferSize];
-            var cnt = stream.Read(data);
-            var msg = Encoding.UTF8.GetString(data, 0, cnt);
-            return msg;
+            try
+            {
+                byte[] data = new byte[client.ReceiveBufferSize];
+                var cnt = stream.Read(data);
+                var msg = Encoding.UTF8.GetString(data, 0, cnt);
+                return msg;
+            }
+            catch (Exception e)
+            {
+                return "Error";
+            }
         }
 
        /* private static string Validate(string msg)

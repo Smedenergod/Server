@@ -7,7 +7,7 @@ namespace Server
 {
     class Categories
     {
-        //public int cid { get; set; }
+        public int? cid { get; set; }
         public string name { get; set; }
 
        /* public Categories(int cid, string name)
