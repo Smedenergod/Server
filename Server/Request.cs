@@ -1,24 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 
 namespace Server
 {
-    class Request
+    internal class Request
     {
         public string method { get; set; }
         public string path { get; set; }
         public string date { get; set; }
         public string body { get; set; }
 
+        //public DateTime time { get; set; } = new DateTime(1970, 1, 1, 0, 0, 0, 0);
+
         private Stream stream { get; set; }
 
-        //public List<Categories> categoryList = new List<Categories>();
-
+        //public static List<Categories> categoryList = new List<Categories>();
         public void setStream(Stream stream)
         {
             this.stream = stream;
@@ -26,51 +23,52 @@ namespace Server
 
         public void run()
         {
-            ServerResponse response = new ServerResponse();
-            simpleValidate(/*response*/);
+            var response = new ServerResponse();
+            simpleValidate(response);
             RequestPath(response);
         }
 
-        public void simpleValidate(/*ServerResponse response*/)
+        public void simpleValidate(ServerResponse response)
         {
-            ServerResponse response = new ServerResponse();
-
-            if (String.IsNullOrEmpty(method))
+            if (string.IsNullOrEmpty(method))
             {
-                if (String.IsNullOrEmpty(response.status))
+                if (string.IsNullOrEmpty(response.status))
                     response.status = "missing method";
                 else
-                    response.status = String.Concat(response.status, "+ missing method");
-
-                //response.body = "missing method";
-                //response.printing();
-                //var msg = JsonSerializer.Serialize<ServerResponse>(response);
-                //var data = JsonSerializer.SerializeToUtf8Bytes(response);
-                //Console.WriteLine($"Replying with message: {msg}");
-                //var data = Encoding.UTF8.GetBytes(msg);
-                //stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                    response.status = string.Concat(response.status, "+ missing method");
             }
 
-            if (String.IsNullOrEmpty(date))
+            if (string.IsNullOrEmpty(date))
             {
-                //ServerResponse response = new ServerResponse();
-                if (String.IsNullOrEmpty(response.status))
+                if (string.IsNullOrEmpty(response.status))
                     response.status = "missing date";
                 else
-                    response.status = String.Concat(response.status, "+ missing date");
-                //stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                    response.status = string.Concat(response.status, "+ missing date");
             }
 
-            if ( !String.IsNullOrEmpty(method) &&  (!method.Contains("update") && !method.Contains("delete") && !method.Contains("read") &&
-                                                   !method.Contains("create")) )
+            try
             {
-                if (String.IsNullOrEmpty(response.status))
+                var testing = int.Parse(date);
+            }
+            catch (Exception E)
+            {
+                if (string.IsNullOrEmpty(response.status))
+                    response.status = "illegal date";
+                else
+                    response.status = string.Concat(response.status, "+ illegal date");
+            }
+
+
+            if (!string.IsNullOrEmpty(method) && !method.Contains("update") && !method.Contains("delete") &&
+                !method.Contains("read") && !method.Contains("create") && !method.Contains("echo"))
+            {
+                if (string.IsNullOrEmpty(response.status))
                     response.status = "illegal method";
                 else
-                    response.status = String.Concat(response.status, "+ illegal method");
+                    response.status = string.Concat(response.status, "+ illegal method");
             }
 
-            if(!String.IsNullOrEmpty(response.status)) 
+            if (!string.IsNullOrEmpty(response.status))
                 stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
         }
 
@@ -79,70 +77,247 @@ namespace Server
             switch (method)
             {
                 case "create":
-                    create(response);
+                    Create(response);
                     break;
                 case "delete":
+                    Delete(response);
                     break;
                 case "read":
+                    Read(response);
                     break;
                 case "update":
+                    Update(response);
+                    break;
+                case "echo":
+                    Echo(response);
                     break;
                 default:
+                    stream.Write(JsonSerializer.SerializeToUtf8Bytes("Defaulting"));
                     break;
             }
         }
 
-        public void create(ServerResponse response)
+        public void Create(ServerResponse response)
         {
-            Console.WriteLine(path);
-            if (!path.EndsWith("categories"))
+            if (IsPathEmpty())
             {
-                Console.WriteLine("Testing");
-                if (String.IsNullOrEmpty(response.status))
-                    response.status = "4 bad request";
-                else
-                    response.status = String.Concat(response.status, "+ 4 bad request");
+                response.status = "missing resource";
                 stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
                 return;
             }
-            //if (!String.IsNullOrEmpty(response.status))
-            //stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
 
+            if (IsBodyEmpty())
+            {
+                MissingBody(response);
+                return;
+            }
 
-            //var test = JsonSerializer.Serialize(new {name = "Testing"});
+            if (!path.EndsWith("categories"))
+            {
+                if (string.IsNullOrEmpty(response.status))
+                    response.status = "4 bad request";
+                else
+                    response.status = string.Concat(response.status, "+ 4 bad request");
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
 
+            var categories = new Categories();
 
-
-            Categories categories = new Categories();
-
-
-
-            //var test = JsonSerializer.Deserialize<Categories>(response.body);
-
-            //Console.WriteLine(test);
             categories = JsonSerializer.Deserialize<Categories>(body);
-            //categoryList.Add(categories);
-            //categories.cid = categoryList.Count;
-
-            
-            //categories = JsonSerializer.Deserialize<Categories>(test);
-
-            //Console.WriteLine(categories);
+            Helper.categoryList.Add(categories);
+            categories.cid = Helper.categoryList.Count;
 
             response.status = "2 created";
 
             response.body = JsonSerializer.Serialize(categories);
-            //Console.WriteLine(response.body);
             stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
-            return;
         }
 
-        /*public Request(string method, string path, string date, string body)
+        public void Update(ServerResponse response)
         {
-            this.method = method;
-            this.path = path;
-            this.date = date;
-            this.body = body;
-        }*/
+            if (IsPathEmpty())
+            {
+                response.status = "missing resource";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+
+            if (IsBodyEmpty())
+            {
+                MissingBody(response);
+                return;
+            }
+
+            if (!body.StartsWith("{"))
+            {
+                response.status = "illegal body";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+
+            if (path.EndsWith("categories"))
+            {
+                response.status = "4 Bad Request";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+
+            var results = path.Split("/");
+            var result = results[results.Length - 1];
+
+            for (var i = 0; i < result.Length; i++)
+            {
+                var isInt = char.IsDigit(result[i]);
+                if (!isInt)
+                {
+                    response.status = "4 Bad Request";
+                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                    return;
+                }
+            }
+
+            var intresult = int.Parse(result);
+
+            Categories category;
+            if (intresult <= Helper.categoryList.Count)
+            {
+                category = Helper.categoryList[intresult - 1];
+                var newCategory = JsonSerializer.Deserialize<Categories>(body);
+                category.name = newCategory.name;
+                response.status = "3 updated";
+                response.body = JsonSerializer.Serialize(category);
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            }
+            else
+            {
+                response.status = "5 not found";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            }
+        }
+
+        public void Read(ServerResponse response)
+        {
+            if (IsPathEmpty())
+            {
+                response.status = "missing resource";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+
+            if (path.Equals("/api/categories"))
+            {
+                response.status = "1 Ok";
+                response.body = JsonSerializer.Serialize(Helper.categoryList);
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+
+            var results = path.Split("/");
+            var result = results[results.Length - 1];
+
+            for (var i = 0; i < result.Length; i++)
+            {
+                var isInt = char.IsDigit(result[i]);
+                if (!isInt)
+                {
+                    response.status = "4 Bad Request";
+                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                    return;
+                }
+            }
+
+            var intresult = int.Parse(result);
+
+            if (intresult <= Helper.categoryList.Count)
+            {
+                var categories = Helper.categoryList[intresult - 1];
+                response.status = "1 Ok";
+                response.body = JsonSerializer.Serialize(categories);
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            }
+            else
+            {
+                response.status = "5 not found";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            }
+        }
+
+        public void Delete(ServerResponse response)
+        {
+            if (IsPathEmpty())
+            {
+                response.status = "missing resource";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+
+
+            if (path.EndsWith("categories"))
+            {
+                response.status = "4 Bad Request";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                return;
+            }
+
+            var results = path.Split("/");
+            var result = results[results.Length - 1];
+
+            for (var i = 0; i < result.Length; i++)
+            {
+                var isInt = char.IsDigit(result[i]);
+
+                if (!isInt)
+                {
+                    response.status = "4 Bad Request";
+                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                    return;
+                }
+            }
+
+            var intresult = int.Parse(result);
+
+            if (intresult <= Helper.categoryList.Count)
+            {
+                Helper.categoryList.RemoveAt(intresult - 1);
+                response.status = "1 Ok";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            }
+            else
+            {
+                response.status = "5 Not Found";
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            }
+        }
+
+        public void Echo(ServerResponse response)
+        {
+            if (IsBodyEmpty())
+            {
+                MissingBody(response);
+            }
+
+            else
+            {
+                response.body = body;
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+            }
+        }
+
+        public bool IsPathEmpty()
+        {
+            return string.IsNullOrEmpty(path);
+        }
+
+        public bool IsBodyEmpty()
+        {
+            return string.IsNullOrEmpty(body);
+        }
+
+        public void MissingBody(ServerResponse response)
+        {
+            response.status = "missing body";
+            stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+        }
     }
 }
