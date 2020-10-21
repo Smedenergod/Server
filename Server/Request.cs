@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net.Http;
 using System.Text.Json;
 
 namespace Server
@@ -11,21 +12,18 @@ namespace Server
         public string date { get; set; }
         public string body { get; set; }
 
-        private Stream stream { get; set; }
+        public Stream stream { get; set; }
 
-        public void setStream(Stream stream)
-        {
-            this.stream = stream;
-        }
+        private ServerResponse response;
 
         public void run()
         {
-            var response = new ServerResponse();
-            simpleValidate(response);
-            RequestPath(response);
+            response = new ServerResponse();
+            simpleValidate();
+            RequestPath();
         }
 
-        public void simpleValidate(ServerResponse response)
+        public void simpleValidate()
         {
             if (string.IsNullOrEmpty(method))
             {
@@ -55,29 +53,28 @@ namespace Server
                     response.status = string.Concat(response.status, "+ illegal date");
             }
 
-
             if (!string.IsNullOrEmpty(response.status))
                 stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
         }
 
-        public void RequestPath(ServerResponse response)
+        public void RequestPath()
         {
             switch (method)
             {
                 case "create":
-                    Create(response);
+                    Create();
                     break;
                 case "delete":
-                    Delete(response);
+                    Delete();
                     break;
                 case "read":
-                    Read(response);
+                    Read();
                     break;
                 case "update":
-                    Update(response);
+                    Update();
                     break;
                 case "echo":
-                    Echo(response);
+                    Echo();
                     break;
                 default:
                     response.status = "illegal method";
@@ -86,17 +83,17 @@ namespace Server
             }
         }
 
-        public void Create(ServerResponse response)
+        public void Create()
         {
             if (IsPathEmpty())
             {
-                MissingPath(response);
+                MissingPath();
                 return;
             }
 
             if (IsBodyEmpty())
             {
-                MissingBody(response);
+                MissingBody();
                 return;
             }
 
@@ -122,17 +119,17 @@ namespace Server
             stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
         }
 
-        public void Update(ServerResponse response)
+        public void Update()
         {
             if (IsPathEmpty())
             {
-                MissingPath(response);
+                MissingPath();
                 return;
             }
 
             if (IsBodyEmpty())
             {
-                MissingBody(response);
+                MissingBody();
                 return;
             }
 
@@ -153,7 +150,7 @@ namespace Server
             var results = path.Split("/");
             var result = results[results.Length - 1];
 
-            if (!IsInt(result, response))
+            if (!IsInt(result))
                 return;
 
             var intresult = int.Parse(result);
@@ -175,11 +172,11 @@ namespace Server
             }
         }
 
-        public void Read(ServerResponse response)
+        public void Read()
         {
             if (IsPathEmpty())
             {
-                MissingPath(response);
+                MissingPath();
                 return;
             }
 
@@ -194,7 +191,7 @@ namespace Server
             var results = path.Split("/");
             var result = results[results.Length - 1];
 
-            if (!IsInt(result, response))
+            if (!IsInt(result))
                 return;
 
             var intresult = int.Parse(result);
@@ -213,11 +210,11 @@ namespace Server
             }
         }
 
-        public void Delete(ServerResponse response)
+        public void Delete()
         {
             if (IsPathEmpty())
             {
-                MissingPath(response);
+                MissingPath();
                 return;
             }
 
@@ -232,7 +229,7 @@ namespace Server
             var results = path.Split("/");
             var result = results[results.Length - 1];
 
-            if (!IsInt(result, response))
+            if (!IsInt(result))
                 return;
 
             var intresult = int.Parse(result);
@@ -250,11 +247,11 @@ namespace Server
             }
         }
 
-        public void Echo(ServerResponse response)
+        public void Echo()
         {
             if (IsBodyEmpty())
             {
-                MissingBody(response);
+                MissingBody();
             }
 
             else
@@ -274,19 +271,19 @@ namespace Server
             return string.IsNullOrEmpty(body);
         }
 
-        public void MissingBody(ServerResponse response)
+        public void MissingBody()
         {
             response.status = "missing body";
             stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
         }
 
-        public void MissingPath(ServerResponse response)
+        public void MissingPath()
         {
             response.status = "missing resource";
             stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
         }
 
-        public bool IsInt(string pathid, ServerResponse response)
+        public bool IsInt(string pathid)
         {
             for (var i = 0; i < pathid.Length; i++)
             {
@@ -298,7 +295,6 @@ namespace Server
                     return false;
                 }
             }
-
             return true;
         }
     }
