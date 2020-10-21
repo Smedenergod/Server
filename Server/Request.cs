@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace Server
@@ -11,280 +12,233 @@ namespace Server
         public string path { get; set; }
         public string date { get; set; }
         public string body { get; set; }
-
-        public Stream stream { get; set; }
-
-        private ServerResponse response;
+        public Stream Stream { get; set; }
+        private ServerResponse Response;
 
         public void run()
         {
-            response = new ServerResponse();
+            Response = new ServerResponse();
             simpleValidate();
-            RequestPath();
+            requestPath();
         }
-
-        public void simpleValidate()
+        private void simpleValidate()
         {
             if (string.IsNullOrEmpty(method))
-            {
-                WriteResponse("missing method");
-            }
-
+                writeResponse("missing method");
             if (string.IsNullOrEmpty(date))
-            {
-                WriteResponse("missing date");
-            }
-
-            try
-            {
-                var testing = int.Parse(date);
-            }
-            catch (Exception E)
-            {
-                WriteResponse("illegal date");
-            }
-
-            if (!string.IsNullOrEmpty(response.status))
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                writeResponse("missing date");
+            else
+                 if (!isInt(date))
+                    writeResponse("illegal date");
+            if (!string.IsNullOrEmpty(Response.status))
+                Stream.Write(JsonSerializer.SerializeToUtf8Bytes(Response));
         }
-
-        public void RequestPath()
+        private void requestPath()
         {
             switch (method)
             {
                 case "create":
-                    Create();
+                    create();
                     break;
                 case "delete":
-                    Delete();
+                    delete();
                     break;
                 case "read":
-                    Read();
+                    read();
                     break;
                 case "update":
-                    Update();
+                    update();
                     break;
                 case "echo":
-                    Echo();
+                    echo();
                     break;
                 default:
-                    WriteResponse("illegal method", true);
+                    writeResponse("illegal method", true);
                     break;
             }
         }
-
-        public void Create()
+        private void create()
         {
-            if (IsPathEmpty())
+            if (isPathEmpty())
             {
-                MissingPath();
+                missingPath();
                 return;
             }
-
-            if (IsBodyEmpty())
+            if (isBodyEmpty())
             {
-                MissingBody();
+                missingBody();
                 return;
             }
-
             if (!path.EndsWith("categories"))
             {
-                WriteResponse("4 bad request", true);
+                writeResponse("4 bad request", true);
                 return;
             }
-
             var categories = JsonSerializer.Deserialize<Categories>(body);
-            Helper.categoryList.Add(categories);
             categories.cid = Helper.categoryList.Count;
-
-            WriteResponse("2 created", JsonSerializer.Serialize(categories), true);
+            Helper.categoryList.Add(categories);
+            writeResponse("2 created", JsonSerializer.Serialize(categories), true);
         }
 
-        public void Update()
+        private void update()
         {
-            if (IsPathEmpty())
+            if (isPathEmpty())
             {
-                MissingPath();
+                missingPath();
                 return;
             }
-
-            if (IsBodyEmpty())
+            if (isBodyEmpty())
             {
-                MissingBody();
+                missingBody();
                 return;
             }
-
             if (!body.StartsWith("{"))
             {
-                WriteResponse("illegal body", true);
+                writeResponse("illegal body", true);
                 return;
             }
-
             if (path.EndsWith("categories"))
             {
-                WriteResponse("4 Bad Request", true);
+                writeResponse("4 Bad Request", true);
                 return;
             }
-
-            var results = path.Split("/");
-            var result = results[results.Length - 1];
-
-            if (!IsInt(result))
-                return;
-
-            var intresult = int.Parse(result);
-
-            Categories category;
-            if (intresult <= Helper.categoryList.Count)
+            var lastElement = getLastElement();
+            if (!isInt(lastElement))
             {
-                category = Helper.categoryList[intresult - 1];
+                writeResponse("4 Bad Request", true);
+                return;
+            }
+            var pathId = int.Parse(lastElement);
+            if (pathId <= Helper.categoryList.Count)
+            {
+                var category = Helper.categoryList[pathId - 1];
                 var newCategory = JsonSerializer.Deserialize<Categories>(body);
                 category.name = newCategory.name;
-                WriteResponse("3 updated", JsonSerializer.Serialize(category), true);
+                writeResponse("3 updated", JsonSerializer.Serialize(category), true);
             }
             else
-            {
-                WriteResponse("5 not found", true);
-            }
+                writeResponse("5 not found", true);
         }
 
-        public void Read()
+        private void read()
         {
-            if (IsPathEmpty())
+            if (isPathEmpty())
             {
-                MissingPath();
+                missingPath();
                 return;
             }
-
             if (path.Equals("/api/categories"))
             {
-                WriteResponse("1 Ok", JsonSerializer.Serialize(Helper.categoryList), true);
+                writeResponse("1 Ok", JsonSerializer.Serialize(Helper.categoryList), true);
                 return;
             }
-
-            var results = path.Split("/");
-            var result = results[results.Length - 1];
-
-            if (!IsInt(result))
-                return;
-
-            var intresult = int.Parse(result);
-
-            if (intresult <= Helper.categoryList.Count)
+            var lastElement = getLastElement();
+            if (!isInt(lastElement))
             {
-                var categories = Helper.categoryList[intresult - 1];
-                WriteResponse("1 Ok", JsonSerializer.Serialize(categories), true);
+                writeResponse("4 Bad Request", true);
+                return;
+            }
+            var pathId = int.Parse(lastElement);
+            if (pathId <= Helper.categoryList.Count)
+            {
+                var categories = Helper.categoryList[pathId - 1];
+                writeResponse("1 Ok", JsonSerializer.Serialize(categories), true);
             }
             else
-            {
-                WriteResponse("5 not found", true);
-            }
+                writeResponse("5 not found", true);
         }
 
-        public void Delete()
+        private void delete()
         {
-            if (IsPathEmpty())
+            if (isPathEmpty())
             {
-                MissingPath();
+                missingPath();
                 return;
             }
-
-
             if (path.EndsWith("categories"))
             {
-                WriteResponse("4 Bad Request", true);
+                writeResponse("4 Bad Request", true);
                 return;
             }
-
-            var results = path.Split("/");
-            var result = results[results.Length - 1];
-
-            if (!IsInt(result))
-                return;
-
-            var intresult = int.Parse(result);
-
-            if (intresult <= Helper.categoryList.Count)
+            var lastElement = getLastElement();
+            if (!isInt(lastElement))
             {
-                Helper.categoryList.RemoveAt(intresult - 1);
-                WriteResponse("1 Ok", true);
+                writeResponse("4 Bad Request", true);
+                return;
+            }
+            var pathId = int.Parse(lastElement);
+            if (pathId <= Helper.categoryList.Count)
+            {
+                Helper.categoryList.RemoveAt(pathId);
+                writeResponse("1 Ok", true);
             }
             else
-            {
-                WriteResponse("5 Not Found", true);
-            }
+                writeResponse("5 Not Found", true);
         }
 
-        public void Echo()
+        private void echo()
         {
-            if (IsBodyEmpty())
-            {
-                MissingBody();
-            }
-
+            if (isBodyEmpty())
+                missingBody();
             else
             {
-                response.body = body;
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
+                Response.body = body;
+                Stream.Write(JsonSerializer.SerializeToUtf8Bytes(Response));
             }
         }
 
-        public bool IsPathEmpty()
+        private bool isPathEmpty()
         {
             return string.IsNullOrEmpty(path);
         }
 
-        public bool IsBodyEmpty()
+        private bool isBodyEmpty()
         {
             return string.IsNullOrEmpty(body);
         }
 
-        public void MissingBody()
+        private void missingBody()
         {
-            WriteResponse("missing body", true);
+            writeResponse("missing body", true);
         }
 
-        public void MissingPath()
+        private void missingPath()
         {
-            WriteResponse("missing resource", true);
+            writeResponse("missing resource", true);
         }
 
-        public bool IsInt(string pathid)
+        private bool isInt(string pathid)
         {
-            for (var i = 0; i < pathid.Length; i++)
+            foreach (var t in pathid)
             {
-                var isInt = char.IsDigit(pathid[i]);
+                var isInt = char.IsDigit(t);
                 if (!isInt)
                 {
-                    WriteResponse("4 Bad Request", true);
                     return false;
                 }
             }
             return true;
         }
 
-        public void WriteResponse(string status, string body, bool shouldWrite = false)
+        private void writeResponse(string status, string body, bool shouldWrite = false)
         {
-            if (!String.IsNullOrEmpty(response.status))
-                response.status = String.Concat(response.status, status);
-            else
-                response.status = status;
-            response.body = body;
-
+            Response.status = !String.IsNullOrEmpty(Response.status) ? String.Concat(Response.status, status) : status;
+            Response.body = body;
             if(shouldWrite)
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
-            return;
+                Stream.Write(JsonSerializer.SerializeToUtf8Bytes(Response));
         }
 
-        public void WriteResponse(string status, bool shouldWrite = false)
+        private string getLastElement()
         {
-            if (!String.IsNullOrEmpty(response.status))
-                response.status = String.Concat(response.status, status);
-            else
-                response.status = status;
+            var elements = path.Split("/");
+            return elements[^1];
+        }
+
+        private void writeResponse(string status, bool shouldWrite = false)
+        {
+            Response.status = !String.IsNullOrEmpty(Response.status) ? String.Concat(Response.status, status) : status;
             if(shouldWrite)
-                stream.Write(JsonSerializer.SerializeToUtf8Bytes(response));
-            return;
+                Stream.Write(JsonSerializer.SerializeToUtf8Bytes(Response));
         }
     }
 }

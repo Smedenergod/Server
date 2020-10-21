@@ -32,7 +32,7 @@ namespace Server
                 if (!msg.Equals(""))
                 {
                     request = JsonSerializer.Deserialize<Request>(msg);
-                    request.stream = stream;
+                    request.Stream = stream;
                     Action action = new Action(request.run);
                     Task task = new Task(action);
                     task.Start();
